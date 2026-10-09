@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SPK Order Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #EAF0F6; min-height: 100vh; }
@@ -137,39 +137,33 @@
   /* RECEIPT MODAL */
   .receipt-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px; }
   .receipt-overlay.show { display: flex; }
-  .receipt-box { background: white; border-radius: 12px; width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
+  .receipt-box { background: white; border-radius: 12px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
   .receipt-actions { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid #F2F3F4; background: #F8F9FA; border-radius: 0 0 12px 12px; }
   .receipt-actions button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn-print { background: #1B4F72; color: white; }
   .btn-close-receipt { background: #F2F3F4; color: #566573; }
 
-  /* RECEIPT / INVOICE — A4 LAYOUT */
-  .receipt { padding: 32px 40px; font-family: Arial, sans-serif; width: 100%; }
-  .receipt-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 3px solid #1B4F72; }
-  .receipt-company-block { flex: 1; }
-  .receipt-company { font-size: 22px; font-weight: 700; color: #1B4F72; }
-  .receipt-sub { font-size: 11px; color: #566573; margin-top: 4px; line-height: 1.7; }
-  .receipt-qr-block { display: flex; flex-direction: column; align-items: center; margin-left: 20px; }
-  .receipt-qr-block canvas { border: 2px solid #D5D8DC; border-radius: 4px; padding: 4px; background: white; }
-  .receipt-qr-label { font-size: 9px; color: #566573; margin-top: 4px; text-align: center; }
-  .receipt-doc-badge { display: inline-block; background: #1B4F72; color: white; padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; letter-spacing: 2px; margin-bottom: 16px; }
-  .receipt-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
-  .receipt-info-box { background: #F8F9FA; border-radius: 8px; padding: 12px 14px; }
-  .receipt-section-title { font-size: 10px; font-weight: 700; color: #1B4F72; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .receipt-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
-  .receipt-row span:first-child { color: #566573; }
-  .receipt-row span:last-child { font-weight: 500; color: #2C3E50; }
-  .receipt-divider { border: none; border-top: 1px dashed #D5D8DC; margin: 12px 0; }
+  /* RECEIPT CONTENT */
+  .receipt { padding: 28px 28px 16px; font-family: 'Segoe UI', Arial, sans-serif; }
+  .receipt-header { text-align: center; margin-bottom: 20px; }
+  .receipt-company { font-size: 20px; font-weight: 700; color: #1B4F72; }
+  .receipt-sub { font-size: 12px; color: #566573; margin-top: 3px; }
+  .receipt-title { font-size: 14px; font-weight: 700; color: #1B4F72; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #1B4F72; padding-bottom: 4px; }
+  .receipt-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: #2C3E50; }
+  .receipt-row.label { color: #566573; font-size: 12px; }
+  .receipt-divider { border: none; border-top: 1px dashed #D5D8DC; margin: 10px 0; }
   .receipt-items-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
-  .receipt-items-table th { background: #1B4F72; color: white; padding: 8px 10px; text-align: left; font-size: 11px; }
-  .receipt-items-table td { padding: 8px 10px; border-bottom: 1px solid #F2F3F4; }
-  .receipt-items-table tr:nth-child(even) td { background: #F8F9FA; }
-  .receipt-totals { margin-top: 12px; }
-  .receipt-total-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid #F2F3F4; }
-  .receipt-total-row.grand { font-size: 15px; font-weight: 700; color: white; background: #1B4F72; padding: 10px 14px; border-radius: 8px; margin-top: 8px; border-bottom: none; }
+  .receipt-items-table th { background: #EBF5FB; color: #1B4F72; padding: 7px 10px; text-align: left; font-size: 11px; }
+  .receipt-items-table td { padding: 7px 10px; border-bottom: 1px solid #F2F3F4; }
+  .receipt-totals { margin-top: 10px; }
+  .receipt-total-row { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; }
+  .receipt-total-row.grand { font-size: 16px; font-weight: 700; color: #1B4F72; border-top: 2px solid #1B4F72; padding-top: 8px; margin-top: 4px; }
   .receipt-total-row.discount { color: #E67E22; }
   .receipt-total-row.vat { color: #8E44AD; }
-  .receipt-footer { text-align: center; margin-top: 24px; font-size: 11px; color: #566573; padding-top: 14px; border-top: 1px dashed #D5D8DC; }
+  .receipt-footer { text-align: center; margin-top: 20px; font-size: 11px; color: #566573; padding-top: 14px; border-top: 1px dashed #D5D8DC; }
+  .qr-section { text-align: center; margin: 16px 0 8px; }
+  .qr-section canvas { border: 4px solid #EBF5FB; border-radius: 8px; padding: 4px; }
+  .qr-label { font-size: 11px; color: #566573; margin-top: 6px; }
   .receipt-inputs { padding: 14px 20px; background: #F0F7FF; border-top: 1px solid #D5D8DC; }
   .receipt-inputs-title { font-size: 12px; font-weight: 600; color: #1B4F72; margin-bottom: 10px; }
   .receipt-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -217,22 +211,18 @@
   .nav-user { font-size: 12px; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 8px; }
   .nav-role { background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; font-size: 11px; }
 
-  /* PRINT STYLES — A4 */
+  /* PRINT STYLES */
   @media print {
-    @page { size: A4 portrait; margin: 10mm 15mm; }
     body * { visibility: hidden; }
-    #print-area, #print-area * { visibility: visible; }
-    #print-area {
-      position: fixed; top: 0; left: 0;
-      width: 210mm; background: white;
-      padding: 0; margin: 0;
-    }
-    .receipt-overlay, .receipt-box, .receipt-actions, .receipt-inputs { display: none !important; }
+    .receipt, .receipt * { visibility: visible; }
+    .receipt { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; }
+    .receipt-overlay { display: block !important; position: static; background: none; }
+    .receipt-box { box-shadow: none; border-radius: 0; max-height: none; }
+    .receipt-actions, .receipt-inputs { display: none !important; }
   }
 </style>
 </head>
 <body>
-<div id="print-area" style="display:none;"></div>
 
 <nav>
   <h1>🐔 SPK Chicken Order Tracker</h1>
@@ -361,19 +351,6 @@
         <thead><tr><th>Customer</th><th>Items</th><th>Total (Rs)</th><th>Payment</th><th>Delivery</th></tr></thead>
         <tbody id="sales-table-body"></tbody>
       </table>
-    </div>
-
-    <div class="card" style="border: 2px solid #1B4F72;">
-      <div class="card-title">📥 Full Data Backup</div>
-      <div style="font-size:13px;color:#566573;margin-bottom:16px;">Download all your Supabase data as CSV files. Save them to Google Drive or your PC every 6 months.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <button onclick="backupTable('orders')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">📦 Backup Orders</button>
-        <button onclick="backupTable('order_items')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">🐔 Backup Order Items</button>
-        <button onclick="backupTable('price_list')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">💰 Backup Price List</button>
-        <button onclick="backupTable('app_users')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">👥 Backup Users</button>
-      </div>
-      <button onclick="backupAll()" style="background:#1B4F72;color:white;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;">📥 Download ALL Data at Once</button>
-      <div style="font-size:11px;color:#566573;margin-top:10px;text-align:center;" id="backup-status"></div>
     </div>
   </div>
 
@@ -961,128 +938,115 @@
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
     const timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-    const docNo = isInvoice ? 'INV-'+String(order.order_number).padStart(4,'0') : 'RCP-'+String(order.order_number).padStart(4,'0');
+
+    const docNo = isInvoice
+      ? 'INV-' + String(order.order_number).padStart(4,'0')
+      : 'RCP-' + String(order.order_number).padStart(4,'0');
+
+    const docTitle = isInvoice ? 'DELIVERY INVOICE' : 'PAYMENT RECEIPT';
     const docColor = isInvoice ? '#2E86C1' : '#1E8449';
     const docBg = isInvoice ? '#EBF5FB' : '#EAFAF1';
 
     const itemsRows = items.length ? items.map(i => `
       <tr>
         <td>${i.product}</td>
-        <td>${i.chicken_type==='Frozen'?'Frozen':'Fresh'}</td>
+        <td>${i.chicken_type==='Frozen'?'🔵 Frozen':'🟢 Fresh'}</td>
         <td style="text-align:right;">${i.quantity_kg} kg</td>
         <td style="text-align:right;">${i.price_per_kg ? fmt(i.price_per_kg) : '-'}</td>
         <td style="text-align:right;font-weight:600;">${i.total_price ? fmt(i.total_price) : '-'}</td>
       </tr>`).join('') :
       `<tr><td colspan="5" style="text-align:center;color:#566573;">${order.product} — ${order.quantity_kg}kg</td></tr>`;
 
-    const html = `<div class="receipt" style="font-family:Arial,sans-serif;">
-
-      <!-- TOP: Company left, QR right -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1B4F72;padding-bottom:16px;margin-bottom:16px;">
-        <div style="flex:1;">
-          <div style="font-size:22px;font-weight:700;color:#1B4F72;">SPK Foods Ltd</div>
-          <div style="font-size:11px;color:#566573;margin-top:4px;line-height:1.7;">
-            Chicken Products Supplier · Mauritius<br>
-            Tel: 57807060 · natleung2001@gmail.com
-          </div>
-        </div>
-        <div style="text-align:center;margin-left:20px;">
-          <div id="qr-container" style="width:100px;height:100px;border:2px solid #D5D8DC;border-radius:6px;padding:4px;background:white;"></div>
-          <div style="font-size:9px;color:#566573;margin-top:4px;">Scan to verify</div>
-        </div>
+    document.getElementById('receipt-content').innerHTML = `
+      <div class="receipt-header">
+        <div class="receipt-company">🐔 SPK Foods Ltd</div>
+        <div class="receipt-sub">Chicken Products Supplier · Mauritius</div>
+        <div class="receipt-sub">Tel: 57807060 · natleung2001@gmail.com</div>
       </div>
 
-      <!-- DOC TITLE BADGE -->
-      <div style="background:${docColor};color:white;text-align:center;padding:8px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:2px;margin-bottom:16px;">
-        ${isInvoice ? 'DELIVERY INVOICE' : 'PAYMENT RECEIPT'}
+      <div style="background:${docBg};border-radius:8px;padding:10px 16px;margin:14px 0;text-align:center;">
+        <div style="font-size:16px;font-weight:700;color:${docColor};letter-spacing:2px;">${docTitle}</div>
+        <div style="font-size:12px;color:#566573;margin-top:3px;">${isInvoice ? 'Please pay upon delivery' : 'Payment confirmed — Thank you!'}</div>
       </div>
 
-      <!-- DOC INFO + CUSTOMER INFO -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-        <div style="background:#F8F9FA;border-radius:8px;padding:12px 14px;">
-          <div style="font-size:10px;font-weight:700;color:#1B4F72;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Document Details</div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">${isInvoice?'Invoice':'Receipt'} No:</span><strong>${docNo}</strong></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Order No:</span><span>ORD-${String(order.order_number).padStart(3,'0')}</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Date:</span><span>${dateStr}</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Delivery:</span><span>${order.delivery_date||'N/A'}</span></div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Status:</span><span style="color:${isInvoice?'#E67E22':'#1E8449'};font-weight:600;">${isInvoice?'PAYMENT DUE':order.payment_status}</span></div>
-        </div>
-        <div style="background:#F8F9FA;border-radius:8px;padding:12px 14px;">
-          <div style="font-size:10px;font-weight:700;color:#1B4F72;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Customer Details</div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Name:</span><strong>${order.customer_name}</strong></div>
-          ${order.phone?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Phone:</span><span>${order.phone}</span></div>`:''}
-          ${order.notes?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span style="color:#566573;">Notes:</span><span>${order.notes}</span></div>`:''}
-        </div>
-      </div>
+      <hr class="receipt-divider">
 
-      <!-- ITEMS TABLE -->
-      <div style="font-size:10px;font-weight:700;color:#1B4F72;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">${isInvoice?'Delivery Items':'Items Purchased'}</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
-        <thead><tr>
-          <th style="background:#1B4F72;color:white;padding:8px 10px;text-align:left;">Product</th>
-          <th style="background:#1B4F72;color:white;padding:8px 10px;text-align:left;">Type</th>
-          <th style="background:#1B4F72;color:white;padding:8px 10px;text-align:right;">Qty (kg)</th>
-          <th style="background:#1B4F72;color:white;padding:8px 10px;text-align:right;">Price/kg</th>
-          <th style="background:#1B4F72;color:white;padding:8px 10px;text-align:right;">Total</th>
-        </tr></thead>
+      <div class="receipt-row"><span class="label">${isInvoice?'Invoice':'Receipt'} No:</span><strong>${docNo}</strong></div>
+      <div class="receipt-row"><span class="label">Order No:</span><span>ORD-${String(order.order_number).padStart(3,'0')}</span></div>
+      <div class="receipt-row"><span class="label">Date:</span><span>${dateStr} at ${timeStr}</span></div>
+      <div class="receipt-row"><span class="label">Delivery Date:</span><span>${order.delivery_date||'N/A'}</span></div>
+      ${isInvoice
+        ? `<div class="receipt-row"><span class="label">Status:</span><span style="color:#E67E22;font-weight:600;">⚠️ Payment Due</span></div>`
+        : `<div class="receipt-row"><span class="label">Payment:</span><span style="color:#1E8449;font-weight:600;">✅ ${order.payment_status}</span></div>`
+      }
+
+      <div class="receipt-title" style="margin-top:16px;border-color:${docColor};color:${docColor};">Customer Details</div>
+      <div class="receipt-row"><span class="label">Name:</span><strong>${order.customer_name}</strong></div>
+      ${order.phone?`<div class="receipt-row"><span class="label">Phone:</span><span>${order.phone}</span></div>`:''}
+      ${order.notes?`<div class="receipt-row"><span class="label">Notes:</span><span>${order.notes}</span></div>`:''}
+
+      <div class="receipt-title" style="margin-top:16px;border-color:${docColor};color:${docColor};">${isInvoice?'Delivery Items':'Items Purchased'}</div>
+      <table class="receipt-items-table">
+        <thead><tr><th>Product</th><th>Type</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price/kg</th><th style="text-align:right;">Total</th></tr></thead>
         <tbody>${itemsRows}</tbody>
       </table>
 
-      <!-- TOTALS -->
-      <div style="margin-left:auto;max-width:280px;">
-        <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #F2F3F4;"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
-        ${discount>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #F2F3F4;color:#E67E22;"><span>Discount (${discount}%)</span><span>- ${fmt(discountAmt)}</span></div>`:''}
-        ${discount>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #F2F3F4;"><span>After Discount</span><span>${fmt(afterDiscount)}</span></div>`:''}
-        ${vat>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #F2F3F4;color:#8E44AD;"><span>VAT (${vat}%)</span><span>+ ${fmt(vatAmt)}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;color:white;background:#1B4F72;padding:10px 14px;border-radius:8px;margin-top:8px;">
-          <span>${isInvoice?'AMOUNT DUE':'AMOUNT PAID'}</span><span>${fmt(grandTotal)}</span>
+      <hr class="receipt-divider">
+
+      <div class="receipt-totals">
+        <div class="receipt-total-row"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
+        ${discount>0?`<div class="receipt-total-row discount"><span>Discount (${discount}%)</span><span>- ${fmt(discountAmt)}</span></div>`:''}
+        ${discount>0?`<div class="receipt-total-row"><span>After Discount</span><span>${fmt(afterDiscount)}</span></div>`:''}
+        ${vat>0?`<div class="receipt-total-row vat"><span>VAT (${vat}%)</span><span>+ ${fmt(vatAmt)}</span></div>`:''}
+        <div class="receipt-total-row grand" style="border-color:${docColor};color:${docColor};">
+          <span>${isInvoice?'AMOUNT DUE':'AMOUNT PAID'}</span>
+          <span>${fmt(grandTotal)}</span>
         </div>
       </div>
 
-      <!-- NOTE BOX -->
-      <div style="background:${docBg};border:1px solid ${docColor};border-radius:8px;padding:10px 14px;margin-top:16px;font-size:12px;color:${docColor};text-align:center;">
-        ${isInvoice
-          ? `Please settle <strong>${fmt(grandTotal)}</strong> upon delivery. Thank you for choosing SPK Foods Ltd!`
-          : `Payment of <strong>${fmt(grandTotal)}</strong> received. Thank you for your business!`}
+      ${isInvoice ? `
+      <div style="background:#FEF9E7;border:1px solid #F9CA24;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px;color:#E67E22;text-align:center;">
+        ⚠️ Please settle the amount of <strong>${fmt(grandTotal)}</strong> upon delivery.<br>
+        Thank you for choosing SPK Foods Ltd!
+      </div>` : `
+      <div style="background:#EAFAF1;border:1px solid #A9DFBF;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px;color:#1E8449;text-align:center;">
+        ✅ Payment of <strong>${fmt(grandTotal)}</strong> received.<br>
+        Thank you for your business — SPK Foods Ltd!
+      </div>`}
+
+      <div class="receipt-footer">
+        SPK Foods Ltd — Quality Chicken Products · Mauritius<br>
+        ${dateStr}
       </div>
 
-      <!-- FOOTER -->
-      <div style="text-align:center;margin-top:20px;font-size:11px;color:#566573;padding-top:14px;border-top:1px dashed #D5D8DC;">
-        SPK Foods Ltd — Quality Chicken Products · Mauritius · ${dateStr}
-      </div>
-    </div>`;
+      <div class="qr-section">
+        <canvas id="qr-canvas"></canvas>
+        <div class="qr-label">Scan to verify this ${isInvoice?'invoice':'receipt'}</div>
+      </div>`;
 
-    document.getElementById('receipt-content').innerHTML = html;
-
-    // Generate QR code using qrcodejs library (div-based, not canvas)
-    const qrText = [
+    // Generate QR code with order details
+    const qrData = [
       'SPK Foods Ltd',
-      docNo,
-      'ORD-'+String(order.order_number).padStart(3,'0'),
+      isInvoice ? 'INVOICE: '+docNo : 'RECEIPT: '+docNo,
+      'Order: ORD-'+String(order.order_number).padStart(3,'0'),
       'Customer: '+order.customer_name,
       'Date: '+dateStr,
-      'Amount: '+fmt(grandTotal),
-      isInvoice ? 'PAYMENT DUE' : 'PAID'
-    ].join(' | ');
+      'Amount: Rs '+grandTotal.toFixed(2),
+      discount>0 ? 'Discount: '+discount+'%' : '',
+      vat>0 ? 'VAT: '+vat+'%' : '',
+      isInvoice ? 'Status: PAYMENT DUE' : 'Status: PAID - '+order.payment_status
+    ].filter(Boolean).join('\n');
 
     setTimeout(() => {
-      const container = document.getElementById('qr-container');
-      if (container) {
-        container.innerHTML = '';
-        try {
-          new QRCode(container, {
-            text: qrText,
-            width: 92,
-            height: 92,
-            colorDark: '#1B4F72',
-            colorLight: '#FFFFFF',
-            correctLevel: QRCode.CorrectLevel.M
-          });
-        } catch(e) {
-          container.innerHTML = '<div style="font-size:9px;color:#566573;text-align:center;padding:10px;">QR<br>Code</div>';
-        }
+      const canvas = document.getElementById('qr-canvas');
+      if (canvas && typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(canvas, qrData, {
+          width: 120,
+          margin: 1,
+          color: { dark: '#1B4F72', light: '#FFFFFF' }
+        }, err => { if(err) console.error(err); });
       }
-    }, 150);
+    }, 100);
   }
 
   function closeReceipt() {
@@ -1091,12 +1055,7 @@
   }
 
   function printReceipt() {
-    const printArea = document.getElementById('print-area');
-    const content = document.getElementById('receipt-content').innerHTML;
-    printArea.innerHTML = content;
-    printArea.style.display = 'block';
     window.print();
-    setTimeout(() => { printArea.style.display = 'none'; printArea.innerHTML = ''; }, 1000);
   }
 
   // ── CHANGE PASSWORD ────────────────────────────────────
@@ -1277,71 +1236,6 @@
     orders = [];
     orderItems = {};
     showToast('👋 Signed out successfully!');
-  }
-
-  // ── BACKUP ─────────────────────────────────────────────
-  function toCSV(data) {
-    if (!data || !data.length) return '';
-    const headers = Object.keys(data[0]);
-    const rows = data.map(row =>
-      headers.map(h => {
-        const val = row[h] === null || row[h] === undefined ? '' : String(row[h]);
-        return '"' + val.replace(/"/g, '""') + '"';
-      }).join(',')
-    );
-    return [headers.join(','), ...rows].join('\n');
-  }
-
-  function downloadCSV(filename, csvContent) {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  async function backupTable(tableName) {
-    const statusEl = document.getElementById('backup-status');
-    statusEl.textContent = '⏳ Downloading ' + tableName + '...';
-    try {
-      const data = await api('GET', tableName + '?select=*');
-      if (!data || !data.length) {
-        statusEl.textContent = '⚠️ No data found in ' + tableName;
-        return;
-      }
-      const date = new Date().toISOString().split('T')[0];
-      const filename = 'SPK_' + tableName + '_backup_' + date + '.csv';
-      downloadCSV(filename, toCSV(data));
-      statusEl.textContent = '✅ ' + tableName + ' downloaded successfully!';
-      showToast('✅ ' + tableName + ' backup downloaded!');
-    } catch(e) {
-      statusEl.textContent = '❌ Error: ' + e.message;
-    }
-  }
-
-  async function backupAll() {
-    const statusEl = document.getElementById('backup-status');
-    const tables = ['orders', 'order_items', 'price_list', 'app_users'];
-    statusEl.textContent = '⏳ Preparing full backup...';
-    let count = 0;
-    for (const table of tables) {
-      try {
-        const data = await api('GET', table + '?select=*');
-        if (data && data.length) {
-          const date = new Date().toISOString().split('T')[0];
-          downloadCSV('SPK_' + table + '_backup_' + date + '.csv', toCSV(data));
-          count++;
-          statusEl.textContent = '⏳ Downloaded ' + count + ' of ' + tables.length + ' files...';
-          await new Promise(r => setTimeout(r, 800));
-        }
-      } catch(e) { console.error('Backup error for ' + table + ':', e); }
-    }
-    statusEl.textContent = '✅ Full backup complete! ' + count + ' files downloaded — ' + new Date().toLocaleDateString('en-GB');
-    showToast('✅ Full backup complete!');
   }
 
   // ── INIT ───────────────────────────────────────────────
