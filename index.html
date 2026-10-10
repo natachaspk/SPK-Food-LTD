@@ -268,14 +268,42 @@
     </div>
     <div class="card">
       <div class="card-title">📋 All Orders</div>
+      <!-- SEARCH ROW -->
       <div class="filters">
         <input type="text" class="search-input" id="search" placeholder="🔍 Search customer..." oninput="renderOrders()">
         <input type="text" id="search-order-num" placeholder="🔢 Order no e.g. 005" style="border:1px solid #D5D8DC;border-radius:20px;padding:6px 14px;font-size:12px;outline:none;width:160px;" oninput="renderOrders()">
+      </div>
+
+      <!-- STATUS FILTERS -->
+      <div class="filters" style="margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:600;color:#566573;padding:5px 0;">Status:</span>
         <button class="filter-btn active" id="filter-all" onclick="setFilter('all',this)">All</button>
         <button class="filter-btn" id="filter-pending" onclick="setFilter('pending',this)">⏳ Pending</button>
         <button class="filter-btn" id="filter-processing" onclick="setFilter('processing',this)">⚙️ Processing</button>
         <button class="filter-btn" id="filter-ready" onclick="setFilter('ready',this)">✅ Ready</button>
         <button class="filter-btn" id="filter-delivered" onclick="setFilter('delivered',this)">🚚 Delivered</button>
+        <button class="filter-btn" id="filter-unpaid" onclick="setPaymentFilter('Unpaid',this)" style="background:#FDEDEC;color:#C0392B;border-color:#F1948A;">❌ Unpaid</button>
+        <button class="filter-btn" id="filter-paid" onclick="setPaymentFilter('all',this)">✅ Show All</button>
+      </div>
+
+      <!-- DATE FILTERS -->
+      <div style="background:#F8F9FA;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:600;color:#1B4F72;margin-bottom:10px;">📅 Filter by Date</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#566573;font-weight:500;">📅 Preparation Date</label>
+            <input type="date" id="filter-prep-date" style="border:1px solid #D5D8DC;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;" oninput="renderOrders()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#566573;font-weight:500;">⚙️ Processing Date</label>
+            <input type="date" id="filter-proc-date" style="border:1px solid #D5D8DC;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;" oninput="renderOrders()">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#566573;font-weight:500;">🚚 Delivery Date</label>
+            <input type="date" id="filter-delivery-date" style="border:1px solid #D5D8DC;border-radius:8px;padding:6px 10px;font-size:12px;outline:none;" oninput="renderOrders()">
+          </div>
+        </div>
+        <button onclick="clearDateFilters()" style="margin-top:10px;background:white;border:1px solid #D5D8DC;border-radius:6px;padding:5px 14px;font-size:12px;color:#566573;cursor:pointer;">✕ Clear Date Filters</button>
       </div>
       <div id="orders-list"><div class="empty">Loading orders...</div></div>
     </div>
@@ -289,7 +317,9 @@
       <div class="form-grid">
         <div class="form-group"><label>Customer Name *</label><input type="text" id="f-customer" placeholder="e.g. Hotel Labourdonnais"></div>
         <div class="form-group"><label>Phone Number</label><input type="text" id="f-phone" placeholder="e.g. 5700 0000"></div>
-        <div class="form-group"><label>Delivery Date *</label><input type="date" id="f-date"></div>
+        <div class="form-group"><label>📅 Preparation Date</label><input type="date" id="f-prep-date"></div>
+        <div class="form-group"><label>⚙️ Processing Date</label><input type="date" id="f-proc-date"></div>
+        <div class="form-group"><label>🚚 Delivery Date *</label><input type="date" id="f-date"></div>
         <div class="form-group"><label>Status</label>
           <select id="f-status"><option value="pending">Pending</option><option value="processing">Processing</option><option value="ready">Ready</option><option value="delivered">Delivered</option></select>
         </div>
@@ -656,6 +686,8 @@
       product: items.map(i=>i.product).join(', '),
       quantity_kg: items.reduce((s,i)=>s+i.quantity_kg,0),
       total_price: totalPrice||null,
+      preparation_date: document.getElementById('f-prep-date').value||null,
+      processing_date: document.getElementById('f-proc-date').value||null,
       delivery_date: date,
       status: document.getElementById('f-status').value,
       payment_status: document.getElementById('f-payment').value,
@@ -665,7 +697,7 @@
       const created = await api('POST','orders',orderBody);
       const orderId = created[0].id;
       for (const item of items) await api('POST','order_items',{...item, order_id: orderId});
-      ['f-customer','f-phone','f-date','f-notes'].forEach(id=>document.getElementById(id).value='');
+      ['f-customer','f-phone','f-prep-date','f-proc-date','f-date','f-notes'].forEach(id=>document.getElementById(id).value='');
       document.getElementById('f-status').value='pending';
       document.getElementById('f-payment').value='Unpaid';
       document.getElementById('items-container').innerHTML='';
@@ -708,15 +740,39 @@
   }
 
   // ── RENDER ORDERS ──────────────────────────────────────
+  let currentPaymentFilter = 'all';
+
+  function setPaymentFilter(val, btn) {
+    currentPaymentFilter = val;
+    document.querySelectorAll('#page-orders .filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('filter-all').classList.add('active');
+    btn.classList.add('active');
+    renderOrders();
+  }
+
+  function clearDateFilters() {
+    ['filter-prep-date','filter-proc-date','filter-delivery-date'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    renderOrders();
+  }
+
   function renderOrders() {
     const search = (document.getElementById("search").value||"").toLowerCase();
     const orderNum = (document.getElementById("search-order-num").value||"").trim();
+    const filterPrepDate = document.getElementById("filter-prep-date").value;
+    const filterProcDate = document.getElementById("filter-proc-date").value;
+    const filterDeliveryDate = document.getElementById("filter-delivery-date").value;
     const today = new Date().toISOString().split("T")[0];
     const filtered = orders.filter(o => {
       const mf = currentFilter==="all"||o.status===currentFilter;
       const ms = !search||o.customer_name.toLowerCase().includes(search);
       const mn = !orderNum||String(o.order_number).padStart(3,"0").includes(orderNum)||String(o.order_number).includes(orderNum);
-      return mf && ms && mn;
+      const mp = currentPaymentFilter==='all'||o.payment_status===currentPaymentFilter;
+      const mprep = !filterPrepDate||(o.preparation_date===filterPrepDate);
+      const mproc = !filterProcDate||(o.processing_date===filterProcDate);
+      const mdel = !filterDeliveryDate||(o.delivery_date===filterDeliveryDate);
+      return mf && ms && mn && mp && mprep && mproc && mdel;
     });
     const list = document.getElementById('orders-list');
     if (!filtered.length) { list.innerHTML='<div class="empty">📭 No orders found.</div>'; return; }
@@ -741,7 +797,12 @@
         </div>
         <div class="order-items">${itemsHtml}</div>
         ${orderTotal>0?`<div class="order-total">Order Total: Rs ${orderTotal.toFixed(2)}</div>`:''}
-        <div class="order-meta"><span>📅 <strong>${o.delivery_date||'N/A'}</strong></span>${o.notes?`<span>📝 ${o.notes}</span>`:''}</div>
+        <div class="order-meta">
+          ${o.preparation_date?`<span>📅 Prep: <strong>${o.preparation_date}</strong></span>`:''}
+          ${o.processing_date?`<span>⚙️ Proc: <strong>${o.processing_date}</strong></span>`:''}
+          <span>🚚 Delivery: <strong>${o.delivery_date||'N/A'}</strong></span>
+          ${o.notes?`<span>📝 ${o.notes}</span>`:''}
+        </div>
 
         <div class="order-dropdowns">
           <select class="order-select status-${o.status}" onchange="updateStatus('${o.id}', this)">
