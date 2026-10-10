@@ -251,6 +251,7 @@
 <div class="tabs">
   <div class="tab active" onclick="showPage('orders',this)">📋 Orders</div>
   <div class="tab" onclick="showPage('add',this)">➕ Add Order</div>
+  <div class="tab" onclick="showPage('customers',this)">👥 Customers</div>
   <div class="tab" onclick="requestManager('dashboard',this)">📊 Dashboard 🔒</div>
   <div class="tab" onclick="requestManager('prices',this)">💰 Price List 🔒</div>
 </div>
@@ -276,14 +277,21 @@
 
       <!-- STATUS FILTERS -->
       <div class="filters" style="margin-bottom:8px;">
-        <span style="font-size:11px;font-weight:600;color:#566573;padding:5px 0;">Status:</span>
-        <button class="filter-btn active" id="filter-all" onclick="setFilter('all',this)">All</button>
-        <button class="filter-btn" id="filter-pending" onclick="setFilter('pending',this)">⏳ Pending</button>
-        <button class="filter-btn" id="filter-processing" onclick="setFilter('processing',this)">⚙️ Processing</button>
-        <button class="filter-btn" id="filter-ready" onclick="setFilter('ready',this)">✅ Ready</button>
-        <button class="filter-btn" id="filter-delivered" onclick="setFilter('delivered',this)">🚚 Delivered</button>
-        <button class="filter-btn" id="filter-unpaid" onclick="setPaymentFilter('Unpaid',this)" style="background:#FDEDEC;color:#C0392B;border-color:#F1948A;">❌ Unpaid</button>
-        <button class="filter-btn" id="filter-paid" onclick="setPaymentFilter('all',this)">✅ Show All</button>
+        <span style="font-size:11px;font-weight:600;color:#566573;padding:5px 2px;">📋 Status:</span>
+        <button class="filter-btn status-filter-btn active" id="filter-all" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn status-filter-btn" id="filter-pending" onclick="setFilter('pending',this)">⏳ Pending</button>
+        <button class="filter-btn status-filter-btn" id="filter-processing" onclick="setFilter('processing',this)">⚙️ Processing</button>
+        <button class="filter-btn status-filter-btn" id="filter-ready" onclick="setFilter('ready',this)">✅ Ready</button>
+        <button class="filter-btn status-filter-btn" id="filter-delivered" onclick="setFilter('delivered',this)">🚚 Delivered</button>
+      </div>
+
+      <!-- PAYMENT FILTERS -->
+      <div class="filters" style="margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:600;color:#566573;padding:5px 2px;">💳 Payment:</span>
+        <button class="filter-btn payment-filter-btn active" id="filter-pay-all" onclick="setPaymentFilter('all',this)">All</button>
+        <button class="filter-btn payment-filter-btn" id="filter-unpaid" onclick="setPaymentFilter('Unpaid',this)" style="color:#C0392B;border-color:#F1948A;">❌ Unpaid</button>
+        <button class="filter-btn payment-filter-btn" id="filter-paid-btn" onclick="setPaymentFilter('Paid',this)" style="color:#1E8449;border-color:#A9DFBF;">✅ Paid</button>
+        <button class="filter-btn payment-filter-btn" id="filter-pod" onclick="setPaymentFilter('Paid upon delivery',this)" style="color:#E67E22;border-color:#F9CA24;">🚚 Paid on delivery</button>
       </div>
 
       <!-- DATE FILTERS -->
@@ -315,8 +323,15 @@
       <div class="card-title">➕ Add New Order</div>
       <div class="err-box" id="err-box"></div>
       <div class="form-grid">
-        <div class="form-group"><label>Customer Name *</label><input type="text" id="f-customer" placeholder="e.g. Hotel Labourdonnais"></div>
-        <div class="form-group"><label>Phone Number</label><input type="text" id="f-phone" placeholder="e.g. 5700 0000"></div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Customer *</label>
+          <select id="f-customer-select" onchange="fillCustomerDetails(this)">
+            <option value="">— Select Customer —</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Customer Name *</label><input type="text" id="f-customer" placeholder="Auto-filled or type manually"></div>
+        <div class="form-group"><label>Phone Number</label><input type="text" id="f-phone" placeholder="Auto-filled"></div>
+        <div class="form-group" style="grid-column:1/-1;"><label>Address</label><input type="text" id="f-address" placeholder="Auto-filled" style="background:#F8F9FA;"></div>
         <div class="form-group"><label>📅 Preparation Date</label><input type="date" id="f-prep-date"></div>
         <div class="form-group"><label>⚙️ Processing Date</label><input type="date" id="f-proc-date"></div>
         <div class="form-group"><label>🚚 Delivery Date *</label><input type="date" id="f-date"></div>
@@ -344,6 +359,33 @@
         <div class="item-total" id="order-total">Total: Rs 0.00</div>
       </div>
       <button class="btn btn-primary" onclick="saveOrder()">💾 Save Order</button>
+    </div>
+  </div>
+
+  <!-- ═══ CUSTOMERS PAGE ═══ -->
+  <div class="page" id="page-customers">
+    <div class="card">
+      <div class="card-title">👥 Customer Database</div>
+      <div class="err-box" id="cust-err-box"></div>
+
+      <!-- Add Customer Form -->
+      <div style="background:#F0F7FF;border-radius:10px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:600;color:#1B4F72;margin-bottom:12px;">➕ Add New Customer</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Company Name *</label><input type="text" id="c-company" placeholder="e.g. Hotel Labourdonnais"></div>
+          <div class="form-group"><label>Contact Person</label><input type="text" id="c-contact" placeholder="e.g. John Smith"></div>
+          <div class="form-group"><label>Phone *</label><input type="text" id="c-phone" placeholder="e.g. 5700 0000"></div>
+          <div class="form-group"><label>Email</label><input type="text" id="c-email" placeholder="e.g. hotel@email.com"></div>
+          <div class="form-group" style="grid-column:1/-1;"><label>Address</label><input type="text" id="c-address" placeholder="e.g. Port Louis, Mauritius"></div>
+          <div class="form-group" style="grid-column:1/-1;"><label>Notes</label><input type="text" id="c-notes" placeholder="e.g. Halal only, delivery before 8am"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveCustomer()" style="margin-top:12px;">💾 Save Customer</button>
+      </div>
+
+      <!-- Customer List -->
+      <div style="font-size:13px;font-weight:600;color:#1B4F72;margin-bottom:10px;">📋 All Customers</div>
+      <input type="text" id="cust-search" placeholder="🔍 Search customers..." oninput="renderCustomers()" style="border:1px solid #D5D8DC;border-radius:20px;padding:7px 14px;font-size:12px;width:100%;outline:none;margin-bottom:12px;">
+      <div id="customers-list"><div class="empty">Loading customers...</div></div>
     </div>
   </div>
 
@@ -742,10 +784,18 @@
   // ── RENDER ORDERS ──────────────────────────────────────
   let currentPaymentFilter = 'all';
 
+  // Status filter — only affects status buttons
+  function setFilter(s, btn) {
+    currentFilter = s;
+    document.querySelectorAll('.status-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderOrders();
+  }
+
+  // Payment filter — only affects payment buttons
   function setPaymentFilter(val, btn) {
     currentPaymentFilter = val;
-    document.querySelectorAll('#page-orders .filter-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('filter-all').classList.add('active');
+    document.querySelectorAll('.payment-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderOrders();
   }
@@ -769,9 +819,9 @@
       const ms = !search||o.customer_name.toLowerCase().includes(search);
       const mn = !orderNum||String(o.order_number).padStart(3,"0").includes(orderNum)||String(o.order_number).includes(orderNum);
       const mp = currentPaymentFilter==='all'||o.payment_status===currentPaymentFilter;
-      const mprep = !filterPrepDate||(o.preparation_date===filterPrepDate);
-      const mproc = !filterProcDate||(o.processing_date===filterProcDate);
-      const mdel = !filterDeliveryDate||(o.delivery_date===filterDeliveryDate);
+      const mprep = !filterPrepDate||((o.preparation_date||'').substring(0,10)===filterPrepDate);
+      const mproc = !filterProcDate||((o.processing_date||'').substring(0,10)===filterProcDate);
+      const mdel = !filterDeliveryDate||((o.delivery_date||'').substring(0,10)===filterDeliveryDate);
       return mf && ms && mn && mp && mprep && mproc && mdel;
     });
     const list = document.getElementById('orders-list');
@@ -933,13 +983,7 @@
     } catch(e) { showToast('❌ '+e.message); }
   }
   async function deleteOrder(id){if(!confirm('Delete this order?'))return;try{await api('DELETE','orders?id=eq.'+id);showToast('🗑 Deleted');loadOrders();}catch(e){showToast('❌ '+e.message);}}
-  function setFilter(s, btn) {
-    currentFilter = s;
-    // Only remove active from order filter buttons — not dashboard date range buttons
-    document.querySelectorAll('#page-orders .filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderOrders();
-  }
+
 
   // ── MANAGER LOGIN ──────────────────────────────────────
   function requestManager(page, tab) {
@@ -1321,6 +1365,8 @@
       showToast('👋 Welcome, '+(user.full_name||user.username)+'!');
       loadOrders();
       loadPrices();
+      loadCustomers();
+      startRealtime();
 
     } catch(e) {
       errEl.textContent = '❌ Error: '+e.message;
@@ -1329,13 +1375,16 @@
   }
 
   function applyRoleAccess(role) {
+    const tabs = document.querySelectorAll('.tab');
     if (role === 'manager') {
-      document.querySelectorAll('.tab').forEach(t => t.style.display = 'block');
+      tabs.forEach(t => t.style.display = 'block');
       document.getElementById('change-pwd-btn').style.display = 'inline-block';
     } else if (role === 'staff') {
-      document.querySelectorAll('.tab').forEach((t,i) => { t.style.display = i < 2 ? 'block' : 'none'; });
+      // Orders, Add Order, Customers — no Dashboard or Price List
+      tabs.forEach((t,i) => { t.style.display = i < 3 ? 'block' : 'none'; });
     } else if (role === 'driver') {
-      document.querySelectorAll('.tab').forEach((t,i) => { t.style.display = i === 0 ? 'block' : 'none'; });
+      // Orders only
+      tabs.forEach((t,i) => { t.style.display = i === 0 ? 'block' : 'none'; });
     }
     showPage('orders', document.querySelector('.tab'));
     document.querySelector('.tab').classList.add('active');
@@ -1354,6 +1403,7 @@
     managerUnlocked = false;
     orders = [];
     orderItems = {};
+    stopRealtime();
     showToast('👋 Signed out successfully!');
   }
 
@@ -1420,6 +1470,154 @@
     }
     statusEl.textContent = '✅ Full backup complete! ' + count + ' files downloaded — ' + new Date().toLocaleDateString('en-GB');
     showToast('✅ Full backup complete!');
+  }
+
+  // ── CUSTOMERS ──────────────────────────────────────────
+  let customers = [];
+
+  async function loadCustomers() {
+    try {
+      const data = await api('GET','customers?select=*&order=company_name.asc&active=eq.true');
+      customers = data || [];
+      renderCustomers();
+      populateCustomerDropdown();
+    } catch(e) { console.error('Customer load error:', e); }
+  }
+
+  function populateCustomerDropdown() {
+    const sel = document.getElementById('f-customer-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Select Customer —</option>' +
+      customers.map(c => `<option value="${c.id}">${c.company_name}${c.contact_name?' ('+c.contact_name+')':''}</option>`).join('');
+  }
+
+  function fillCustomerDetails(sel) {
+    const id = sel.value;
+    if (!id) {
+      document.getElementById('f-customer').value = '';
+      document.getElementById('f-phone').value = '';
+      document.getElementById('f-address').value = '';
+      return;
+    }
+    const cust = customers.find(c => c.id === id);
+    if (cust) {
+      document.getElementById('f-customer').value = cust.company_name;
+      document.getElementById('f-phone').value = cust.phone || '';
+      document.getElementById('f-address').value = cust.address || '';
+    }
+  }
+
+  function renderCustomers() {
+    const search = (document.getElementById('cust-search')?.value||'').toLowerCase();
+    const filtered = customers.filter(c =>
+      !search || c.company_name.toLowerCase().includes(search) ||
+      (c.contact_name||'').toLowerCase().includes(search) ||
+      (c.phone||'').includes(search)
+    );
+    const list = document.getElementById('customers-list');
+    if (!list) return;
+    if (!filtered.length) { list.innerHTML = '<div class="empty">📭 No customers found.</div>'; return; }
+    list.innerHTML = filtered.map(c => `
+      <div style="border:1px solid #D5D8DC;border-radius:10px;padding:14px 16px;margin-bottom:10px;background:white;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#1B4F72;">${c.company_name}</div>
+            ${c.contact_name?`<div style="font-size:12px;color:#566573;margin-top:2px;">👤 ${c.contact_name}</div>`:''}
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button onclick="editCustomer('${c.id}')" style="background:#EBF5FB;color:#2E86C1;border:1px solid #AED6F1;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">✏️ Edit</button>
+            <button onclick="deleteCustomer('${c.id}')" style="background:#FDEDEC;color:#C0392B;border:1px solid #F1948A;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">🗑 Delete</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;font-size:12px;color:#566573;">
+          ${c.phone?`<span>📞 ${c.phone}</span>`:''}
+          ${c.email?`<span>📧 ${c.email}</span>`:''}
+          ${c.address?`<span>📍 ${c.address}</span>`:''}
+          ${c.notes?`<span>📝 ${c.notes}</span>`:''}
+        </div>
+      </div>`).join('');
+  }
+
+  async function saveCustomer() {
+    const company = document.getElementById('c-company').value.trim();
+    const phone = document.getElementById('c-phone').value.trim();
+    const errEl = document.getElementById('cust-err-box');
+    errEl.style.display = 'none';
+    if (!company || !phone) {
+      errEl.textContent = '⚠️ Please enter Company Name and Phone.';
+      errEl.style.display = 'block'; return;
+    }
+    const body = {
+      company_name: company,
+      contact_name: document.getElementById('c-contact').value.trim()||null,
+      phone,
+      email: document.getElementById('c-email').value.trim()||null,
+      address: document.getElementById('c-address').value.trim()||null,
+      notes: document.getElementById('c-notes').value.trim()||null
+    };
+    try {
+      await api('POST','customers',body);
+      ['c-company','c-contact','c-phone','c-email','c-address','c-notes'].forEach(id=>document.getElementById(id).value='');
+      showToast('✅ Customer saved!');
+      loadCustomers();
+    } catch(e) { errEl.textContent = '❌ Error: '+e.message; errEl.style.display='block'; }
+  }
+
+  async function deleteCustomer(id) {
+    if (!confirm('Delete this customer?')) return;
+    try {
+      await api('PATCH','customers?id=eq.'+id,{active:false});
+      showToast('🗑 Customer deleted');
+      loadCustomers();
+    } catch(e) { showToast('❌ Error: '+e.message); }
+  }
+
+  function editCustomer(id) {
+    const c = customers.find(c => c.id === id);
+    if (!c) return;
+    document.getElementById('c-company').value = c.company_name;
+    document.getElementById('c-contact').value = c.contact_name||'';
+    document.getElementById('c-phone').value = c.phone||'';
+    document.getElementById('c-email').value = c.email||'';
+    document.getElementById('c-address').value = c.address||'';
+    document.getElementById('c-notes').value = c.notes||'';
+    // Scroll to top of customers page
+    document.querySelector('#page-customers').scrollTop = 0;
+    showToast('✏️ Edit the details above and tap Save Customer');
+  }
+
+  // ── REALTIME ───────────────────────────────────────────
+  let realtimeChannel = null;
+
+  function startRealtime() {
+    if (realtimeChannel) return;
+    // Poll every 15 seconds for updates — compatible with all Supabase plans
+    realtimeChannel = setInterval(async () => {
+      try {
+        const data = await api('GET','orders?select=*&order=created_at.desc');
+        const allItems = await api('GET','order_items?select=*');
+        const newOrders = JSON.stringify(data);
+        const oldOrders = JSON.stringify(orders);
+        if (newOrders !== oldOrders) {
+          orders = data || [];
+          orderItems = {};
+          (allItems||[]).forEach(item => {
+            if(!orderItems[item.order_id]) orderItems[item.order_id]=[];
+            orderItems[item.order_id].push(item);
+          });
+          updateStats();
+          renderOrders();
+          showToast('🔄 Orders updated!');
+        }
+      } catch(e) { console.error('Realtime error:', e); }
+    }, 15000);
+  }
+
+  function stopRealtime() {
+    if (realtimeChannel) {
+      clearInterval(realtimeChannel);
+      realtimeChannel = null;
+    }
   }
 
   // ── INIT ───────────────────────────────────────────────
