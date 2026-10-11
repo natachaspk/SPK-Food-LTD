@@ -6,6 +6,7 @@
 <title>SPK Order Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #EAF0F6; min-height: 100vh; }
@@ -437,14 +438,40 @@
 
     <div class="card" style="border: 2px solid #1B4F72;">
       <div class="card-title">📥 Full Data Backup</div>
-      <div style="font-size:13px;color:#566573;margin-bottom:16px;">Download all your Supabase data as CSV files. Save them to Google Drive or your PC every 6 months.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <button onclick="backupTable('orders')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">📦 Backup Orders</button>
-        <button onclick="backupTable('order_items')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">🐔 Backup Order Items</button>
-        <button onclick="backupTable('price_list')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">💰 Backup Price List</button>
-        <button onclick="backupTable('app_users')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">👥 Backup Users</button>
+      <div style="font-size:13px;color:#566573;margin-bottom:16px;">Download all your Supabase data. Choose <strong>Excel</strong> to open in Microsoft Excel or <strong>CSV</strong> to save raw data. Do this every 6 months.</div>
+
+      <!-- Format selector -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;background:#F8F9FA;border-radius:10px;padding:10px 14px;align-items:center;">
+        <span style="font-size:13px;font-weight:600;color:#1B4F72;">📄 Format:</span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="radio" name="backup-format" value="excel" checked onchange="backupFormat=this.value"> 
+          <span>📊 Excel (.xlsx)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="radio" name="backup-format" value="csv" onchange="backupFormat=this.value">
+          <span>📋 CSV (.csv)</span>
+        </label>
       </div>
-      <button onclick="backupAll()" style="background:#1B4F72;color:white;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;">📥 Download ALL Data at Once</button>
+
+      <!-- Individual table buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button onclick="backupTable('orders')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">📦 Orders</button>
+        <button onclick="backupTable('order_items')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">🐔 Order Items</button>
+        <button onclick="backupTable('customers')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">👥 Customers</button>
+        <button onclick="backupTable('price_list')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">💰 Price List</button>
+        <button onclick="backupTable('app_users')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:8px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;">🔑 Users</button>
+      </div>
+
+      <!-- Full backup button -->
+      <button onclick="backupAll()" style="background:#1B4F72;color:white;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;">
+        📥 Download ALL Data — Full Backup
+      </button>
+
+      <!-- Excel full backup — all sheets in one file -->
+      <button onclick="backupAllExcel()" style="background:#1E8449;color:white;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:8px;">
+        📊 Download ALL in ONE Excel File (All sheets)
+      </button>
+
       <div style="font-size:11px;color:#566573;margin-top:10px;text-align:center;" id="backup-status"></div>
     </div>
   </div>
@@ -581,8 +608,128 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ── PRIMARY DATABASE (Supabase) ────────────────────────
   const SURL = 'https://ewqzsronsjzsewwsmdev.supabase.co';
   const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3cXpzcm9uc2p6c2V3d3NtZGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzOTc1OTksImV4cCI6MjEwNDk3MzU5OX0.mYbayLbpKHMcxkLixKZHBM7UgRRigWJgeq_pc-j_9Yc';
+
+  // ── BACKUP DATABASE (Neon) ──────────────────────────────
+  const NEON_URL = 'https://ep-noisy-sky-b4tywx4m-pooler.c-6.us-east-2.aws.neon.tech';
+  const NEON_KEY = 'npg_1j8nSsLukNbF';
+  const NEON_USER = 'neondb_owner';
+
+  // ── DATABASE STATE ──────────────────────────────────────
+  let usingBackupDB = false;
+  let dbCheckInterval = null;
+
+  function showDBStatus(isBackup) {
+    const existing = document.getElementById('db-status-indicator');
+    if (existing) existing.remove();
+    const indicator = document.createElement('div');
+    indicator.id = 'db-status-indicator';
+    indicator.style.cssText = `
+      position:fixed;bottom:70px;right:16px;z-index:9998;
+      padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;
+      box-shadow:0 2px 8px rgba(0,0,0,0.2);cursor:pointer;
+    `;
+    if (isBackup) {
+      indicator.style.background = '#FDEDEC';
+      indicator.style.color = '#C0392B';
+      indicator.style.border = '1px solid #F1948A';
+      indicator.textContent = '🔴 Using Backup Database';
+    } else {
+      indicator.style.background = '#EAFAF1';
+      indicator.style.color = '#1E8449';
+      indicator.style.border = '1px solid #A9DFBF';
+      indicator.textContent = '🟢 Main Database Active';
+      setTimeout(() => { if(indicator.parentNode) indicator.remove(); }, 4000);
+    }
+    document.body.appendChild(indicator);
+  }
+
+  // ── NEON REST API ───────────────────────────────────────
+  async function neonQuery(sql, params=[]) {
+    const res = await fetch(NEON_URL + '/sql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + NEON_KEY,
+        'Neon-Connection-String': `postgresql://${NEON_USER}:${NEON_KEY}@ep-noisy-sky-b4tywx4m-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require`
+      },
+      body: JSON.stringify({ query: sql, params })
+    });
+    if (!res.ok) throw new Error('Neon error: ' + await res.text());
+    return res.json();
+  }
+
+  // ── SYNC TO NEON ────────────────────────────────────────
+  async function syncToNeon(table, data) {
+    if (!data || !data.length) return;
+    try {
+      for (const row of data) {
+        const cols = Object.keys(row).join(', ');
+        const vals = Object.values(row).map((v,i) => '$'+(i+1)).join(', ');
+        const updates = Object.keys(row).map((k,i) => k+'=$'+(i+1)).join(', ');
+        const params = Object.values(row).map(v => v === null ? null : String(v));
+        await neonQuery(
+          `INSERT INTO ${table} (${cols}) VALUES (${vals}) ON CONFLICT (id) DO UPDATE SET ${updates}`,
+          params
+        );
+      }
+    } catch(e) { console.warn('Neon sync warning:', e.message); }
+  }
+
+  // ── FAILOVER API ─────────────────────────────────────────
+  async function api(method, path, body) {
+    // Try Supabase first
+    try {
+      const res = await fetch(SURL + '/rest/v1/' + path, {
+        method,
+        headers: {
+          'apikey': KEY, 'Authorization': 'Bearer '+KEY,
+          'Content-Type': 'application/json',
+          'Prefer': method==='POST'?'return=representation':''
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (!res.ok) throw new Error(await res.text());
+      if (method==='DELETE'||res.status===204) {
+        if (usingBackupDB) { usingBackupDB=false; showDBStatus(false); }
+        return null;
+      }
+      const data = await res.json();
+      // If was using backup, switch back
+      if (usingBackupDB) {
+        usingBackupDB = false;
+        showDBStatus(false);
+        showToast('✅ Reconnected to main database!');
+      }
+      // Sync writes to Neon in background
+      if ((method==='POST'||method==='PATCH') && data) {
+        const tableName = path.split('?')[0];
+        const toSync = Array.isArray(data) ? data : [data];
+        setTimeout(() => syncToNeon(tableName, toSync), 500);
+      }
+      return data;
+    } catch(supaErr) {
+      // Supabase failed — try Neon backup
+      if (!usingBackupDB) {
+        usingBackupDB = true;
+        showDBStatus(true);
+        showToast('⚠️ Main database unavailable — using backup!');
+      }
+      // For GET requests — read from Neon
+      if (method === 'GET') {
+        try {
+          const tableName = path.split('?')[0];
+          const result = await neonQuery('SELECT * FROM ' + tableName + ' ORDER BY created_at DESC LIMIT 1000');
+          return result.rows || [];
+        } catch(neonErr) {
+          throw new Error('Both databases unavailable: ' + neonErr.message);
+        }
+      }
+      throw supaErr;
+    }
+  }
 
   let orders = [];
   let orderItems = {};
@@ -1367,6 +1514,14 @@
       loadPrices();
       loadCustomers();
       startRealtime();
+      // Auto Excel backup for manager on login
+      if (user.role === 'manager') {
+        const today = new Date().toISOString().split('T')[0];
+        const lastBackup = localStorage.getItem('spk_last_backup');
+        if (lastBackup !== today) {
+          setTimeout(() => autoBackupOnLogin(today), 5000);
+        }
+      }
 
     } catch(e) {
       errEl.textContent = '❌ Error: '+e.message;
@@ -1404,10 +1559,16 @@
     orders = [];
     orderItems = {};
     stopRealtime();
+    if (dbCheckInterval) { clearInterval(dbCheckInterval); dbCheckInterval = null; }
+    usingBackupDB = false;
+    const ind = document.getElementById('db-status-indicator');
+    if (ind) ind.remove();
     showToast('👋 Signed out successfully!');
   }
 
   // ── BACKUP ─────────────────────────────────────────────
+  let backupFormat = 'excel';
+
   function toCSV(data) {
     if (!data || !data.length) return '';
     const headers = Object.keys(data[0]);
@@ -1424,12 +1585,21 @@
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  function downloadExcel(filename, data, sheetName) {
+    try {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      // Auto column widths
+      const cols = Object.keys(data[0]||{}).map(k => ({ wch: Math.max(k.length, 14) }));
+      ws['!cols'] = cols;
+      XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Data');
+      XLSX.writeFile(wb, filename);
+    } catch(e) { showToast('❌ Excel error: ' + e.message); }
   }
 
   async function backupTable(tableName) {
@@ -1437,23 +1607,24 @@
     statusEl.textContent = '⏳ Downloading ' + tableName + '...';
     try {
       const data = await api('GET', tableName + '?select=*');
-      if (!data || !data.length) {
-        statusEl.textContent = '⚠️ No data found in ' + tableName;
-        return;
-      }
+      if (!data || !data.length) { statusEl.textContent = '⚠️ No data in ' + tableName; return; }
       const date = new Date().toISOString().split('T')[0];
-      const filename = 'SPK_' + tableName + '_backup_' + date + '.csv';
-      downloadCSV(filename, toCSV(data));
-      statusEl.textContent = '✅ ' + tableName + ' downloaded successfully!';
-      showToast('✅ ' + tableName + ' backup downloaded!');
-    } catch(e) {
-      statusEl.textContent = '❌ Error: ' + e.message;
-    }
+      const sheetNames = { orders:'Orders', order_items:'Order Items', customers:'Customers', price_list:'Price List', app_users:'Users' };
+      if (backupFormat === 'excel') {
+        downloadExcel('SPK_' + tableName + '_' + date + '.xlsx', data, sheetNames[tableName]||tableName);
+        statusEl.textContent = '✅ ' + tableName + ' downloaded as Excel!';
+        showToast('✅ Excel backup downloaded!');
+      } else {
+        downloadCSV('SPK_' + tableName + '_' + date + '.csv', toCSV(data));
+        statusEl.textContent = '✅ ' + tableName + ' downloaded as CSV!';
+        showToast('✅ CSV backup downloaded!');
+      }
+    } catch(e) { statusEl.textContent = '❌ Error: ' + e.message; }
   }
 
   async function backupAll() {
     const statusEl = document.getElementById('backup-status');
-    const tables = ['orders', 'order_items', 'price_list', 'app_users'];
+    const tables = ['orders','order_items','customers','price_list','app_users'];
     statusEl.textContent = '⏳ Preparing full backup...';
     let count = 0;
     for (const table of tables) {
@@ -1461,15 +1632,44 @@
         const data = await api('GET', table + '?select=*');
         if (data && data.length) {
           const date = new Date().toISOString().split('T')[0];
-          downloadCSV('SPK_' + table + '_backup_' + date + '.csv', toCSV(data));
+          const sheetNames = { orders:'Orders', order_items:'Order Items', customers:'Customers', price_list:'Price List', app_users:'Users' };
+          if (backupFormat === 'excel') {
+            downloadExcel('SPK_' + table + '_' + date + '.xlsx', data, sheetNames[table]||table);
+          } else {
+            downloadCSV('SPK_' + table + '_' + date + '.csv', toCSV(data));
+          }
           count++;
-          statusEl.textContent = '⏳ Downloaded ' + count + ' of ' + tables.length + ' files...';
+          statusEl.textContent = '⏳ Downloaded ' + count + ' of ' + tables.length + '...';
           await new Promise(r => setTimeout(r, 800));
         }
-      } catch(e) { console.error('Backup error for ' + table + ':', e); }
+      } catch(e) { console.error('Backup error:', e); }
     }
-    statusEl.textContent = '✅ Full backup complete! ' + count + ' files downloaded — ' + new Date().toLocaleDateString('en-GB');
+    statusEl.textContent = '✅ Full backup complete! ' + count + ' files — ' + new Date().toLocaleDateString('en-GB');
     showToast('✅ Full backup complete!');
+  }
+
+  async function backupAllExcel() {
+    const statusEl = document.getElementById('backup-status');
+    statusEl.textContent = '⏳ Building Excel workbook...';
+    const tables = ['orders','order_items','customers','price_list','app_users'];
+    const sheetNames = { orders:'Orders', order_items:'Order Items', customers:'Customers', price_list:'Price List', app_users:'Users' };
+    try {
+      const wb = XLSX.utils.book_new();
+      for (const table of tables) {
+        const data = await api('GET', table + '?select=*');
+        if (data && data.length) {
+          const ws = XLSX.utils.json_to_sheet(data);
+          const cols = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length, 14) }));
+          ws['!cols'] = cols;
+          XLSX.utils.book_append_sheet(wb, ws, sheetNames[table]||table);
+          statusEl.textContent = '⏳ Adding sheet: ' + (sheetNames[table]||table) + '...';
+        }
+      }
+      const date = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, 'SPK_Full_Backup_' + date + '.xlsx');
+      statusEl.textContent = '✅ Full Excel backup downloaded! All data in one file — ' + date;
+      showToast('✅ Full Excel backup complete!');
+    } catch(e) { statusEl.textContent = '❌ Error: ' + e.message; }
   }
 
   // ── CUSTOMERS ──────────────────────────────────────────
@@ -1586,11 +1786,51 @@
     showToast('✏️ Edit the details above and tap Save Customer');
   }
 
+  // ── AUTO BACKUP ON LOGIN ───────────────────────────────
+  async function autoBackupOnLogin(today) {
+    try {
+      showToast('📊 Auto backup running...');
+      const tables = ['orders','order_items','customers','price_list'];
+      const sheetNames = { orders:'Orders', order_items:'Order Items', customers:'Customers', price_list:'Price List' };
+      const wb = XLSX.utils.book_new();
+      let hasData = false;
+      for (const table of tables) {
+        try {
+          const data = await api('GET', table + '?select=*');
+          if (data && data.length) {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const cols = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length, 14) }));
+            ws['!cols'] = cols;
+            XLSX.utils.book_append_sheet(wb, ws, sheetNames[table]||table);
+            hasData = true;
+          }
+        } catch(e) { console.warn('Auto backup table error:', e); }
+      }
+      if (hasData) {
+        XLSX.writeFile(wb, 'SPK_AutoBackup_' + today + '.xlsx');
+        localStorage.setItem('spk_last_backup', today);
+        showToast('✅ Daily backup saved: SPK_AutoBackup_' + today + '.xlsx');
+      }
+    } catch(e) { console.warn('Auto backup error:', e); }
+  }
+
   // ── REALTIME ───────────────────────────────────────────
   let realtimeChannel = null;
 
   function startRealtime() {
     if (realtimeChannel) return;
+    // Check if Supabase is back every 30 seconds when using backup
+    dbCheckInterval = setInterval(async () => {
+      if (usingBackupDB) {
+        try {
+          await fetch(SURL + '/rest/v1/', { headers: { 'apikey': KEY } });
+          usingBackupDB = false;
+          showDBStatus(false);
+          showToast('✅ Main database restored!');
+          loadOrders();
+        } catch(e) {}
+      }
+    }, 30000);
     // Poll every 15 seconds for updates — compatible with all Supabase plans
     realtimeChannel = setInterval(async () => {
       try {
