@@ -324,11 +324,10 @@
       <div class="card-title">➕ Add New Order</div>
       <div class="err-box" id="err-box"></div>
       <div class="form-grid">
-        <div class="form-group" style="grid-column:1/-1;">
-          <label>Customer *</label>
-          <select id="f-customer-select" onchange="fillCustomerDetails(this)">
-            <option value="">— Select Customer —</option>
-          </select>
+        <div class="form-group" style="grid-column:1/-1;position:relative;">
+          <label>Customer * — Type to search</label>
+          <input type="text" id="f-customer-search" placeholder="Type company name e.g. L for Labourdonnais..." oninput="searchCustomers(this.value)" autocomplete="off" style="border:1px solid #D5D8DC;border-radius:8px;padding:8px 10px;font-size:13px;width:100%;outline:none;">
+          <div id="customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #2E86C1;border-radius:0 0 8px 8px;z-index:1000;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
         </div>
         <div class="form-group"><label>Customer Name *</label><input type="text" id="f-customer" placeholder="Auto-filled or type manually"></div>
         <div class="form-group"><label>Phone Number</label><input type="text" id="f-phone" placeholder="Auto-filled"></div>
@@ -1007,7 +1006,7 @@
       const created = await api('POST','orders',orderBody);
       const orderId = created[0].id;
       for (const item of items) await api('POST','order_items',{...item, order_id: orderId});
-      ['f-customer','f-phone','f-prep-date','f-proc-date','f-date','f-notes'].forEach(id=>document.getElementById(id).value='');
+      ['f-customer','f-phone','f-prep-date','f-proc-date','f-date','f-notes','f-customer-search','f-address'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
       document.getElementById('f-status').value='pending';
       document.getElementById('f-payment').value='Unpaid';
       document.getElementById('items-container').innerHTML='';
@@ -1806,26 +1805,57 @@
   }
 
   function populateCustomerDropdown() {
-    const sel = document.getElementById('f-customer-select');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">— Select Customer —</option>' +
-      customers.map(c => `<option value="${c.id}">${c.company_name}${c.contact_name?' ('+c.contact_name+')':''}</option>`).join('');
+    // No longer needed — using searchable input instead
   }
 
-  function fillCustomerDetails(sel) {
-    const id = sel.value;
-    if (!id) {
-      document.getElementById('f-customer').value = '';
-      document.getElementById('f-phone').value = '';
-      document.getElementById('f-address').value = '';
+  function searchCustomers(query) {
+    const dropdown = document.getElementById('customer-dropdown');
+    if (!query || query.length < 1) {
+      dropdown.style.display = 'none';
       return;
     }
-    const cust = customers.find(c => c.id === id);
-    if (cust) {
-      document.getElementById('f-customer').value = cust.company_name;
-      document.getElementById('f-phone').value = cust.phone || '';
-      document.getElementById('f-address').value = cust.address || '';
+    const q = query.toLowerCase();
+    const matches = customers.filter(c =>
+      (c.company_name||'').toLowerCase().includes(q) ||
+      (c.contact_name||'').toLowerCase().includes(q) ||
+      (c.phone||'').includes(q)
+    );
+    if (!matches.length) {
+      dropdown.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#566573;">No customers found</div>';
+      dropdown.style.display = 'block';
+      return;
     }
+    dropdown.innerHTML = matches.map(c => `
+      <div onclick="selectCustomer('${c.id}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #F2F3F4;font-size:13px;" 
+           onmouseover="this.style.background='#EBF5FB'" onmouseout="this.style.background='white'">
+        <div style="font-weight:600;color:#1B4F72;">${c.company_name}</div>
+        <div style="font-size:11px;color:#566573;">${c.contact_name?'👤 '+c.contact_name+' · ':''}${c.phone?'📞 '+c.phone:''}${c.address?' · 📍 '+c.address:''}</div>
+      </div>`).join('');
+    dropdown.style.display = 'block';
+  }
+
+  function selectCustomer(id) {
+    const cust = customers.find(c => c.id === id);
+    if (!cust) return;
+    document.getElementById('f-customer-search').value = cust.company_name;
+    document.getElementById('f-customer').value = cust.company_name;
+    document.getElementById('f-phone').value = cust.phone || '';
+    document.getElementById('f-address').value = cust.address || '';
+    document.getElementById('customer-dropdown').style.display = 'none';
+    showToast('✅ Customer selected: ' + cust.company_name);
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('customer-dropdown');
+    const search = document.getElementById('f-customer-search');
+    if (dropdown && search && !dropdown.contains(e.target) && e.target !== search) {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  function fillCustomerDetails(sel) {
+    // Legacy — kept for compatibility
   }
 
   function renderCustomers() {
