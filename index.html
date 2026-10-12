@@ -474,6 +474,36 @@
 
       <div style="font-size:11px;color:#566573;margin-top:10px;text-align:center;" id="backup-status"></div>
     </div>
+
+    <!-- NEON SYNC CARD -->
+    <div class="card" style="border:2px solid #8E44AD;">
+      <div class="card-title" style="color:#8E44AD;">🔵 Neon Backup Database — Sync Status</div>
+      <div style="font-size:13px;color:#566573;margin-bottom:16px;">
+        Your Neon backup database automatically receives a copy of every new order. 
+        Use the button below to sync ALL existing data to Neon right now.
+      </div>
+      <div style="background:#F8F0FF;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:#566573;">Primary Database:</span>
+          <span style="color:#1E8449;font-weight:600;">🟢 Supabase (Active)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:#566573;">Backup Database:</span>
+          <span style="color:#8E44AD;font-weight:600;">🔵 Neon (Ready)</span>
+        </div>
+      </div>
+      <button onclick="fullSyncToNeon()" style="background:#8E44AD;color:white;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
+        🔵 Sync ALL Data to Neon Now
+      </button>
+      <div style="font-size:11px;color:#566573;margin-top:10px;text-align:center;" id="neon-sync-status">
+        Tap button to sync all orders, items and customers to Neon backup
+      </div>
+      <div style="background:#EBF5FB;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#1B4F72;">
+        💡 <strong>How failover works:</strong> If Supabase goes down, your platform automatically 
+        switches to Neon within seconds. A 🔴 red indicator appears at the bottom right. 
+        When Supabase comes back, it switches back automatically.
+      </div>
+    </div>
   </div>
 
   <!-- ═══ PRICE LIST PAGE ═══ -->
@@ -646,18 +676,17 @@
     document.body.appendChild(indicator);
   }
 
-  // ── NEON REST API ───────────────────────────────────────
-  async function neonQuery(sql, params=[]) {
-    const res = await fetch(NEON_URL + '/sql', {
+  // ── NEON HTTP API ───────────────────────────────────────
+  async function neonQuery(sql) {
+    const res = await fetch('https://console.neon.tech/api/v2/projects/super-hall-35438118/branches/production/query', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + NEON_KEY,
-        'Neon-Connection-String': `postgresql://${NEON_USER}:${NEON_KEY}@ep-noisy-sky-b4tywx4m-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require`
+        'Authorization': 'Bearer ' + NEON_KEY
       },
-      body: JSON.stringify({ query: sql, params })
+      body: JSON.stringify({ query: sql, database_name: 'neondb' })
     });
-    if (!res.ok) throw new Error('Neon error: ' + await res.text());
+    if (!res.ok) throw new Error('Neon: ' + await res.text());
     return res.json();
   }
 
@@ -666,21 +695,79 @@
     if (!data || !data.length) return;
     try {
       for (const row of data) {
-        const cols = Object.keys(row).join(', ');
-        const vals = Object.values(row).map((v,i) => '$'+(i+1)).join(', ');
-        const updates = Object.keys(row).map((k,i) => k+'=$'+(i+1)).join(', ');
-        const params = Object.values(row).map(v => v === null ? null : String(v));
-        await neonQuery(
-          `INSERT INTO ${table} (${cols}) VALUES (${vals}) ON CONFLICT (id) DO UPDATE SET ${updates}`,
-          params
-        );
+        const keys = Object.keys(row);
+        const vals = keys.map(k => {
+          const v = row[k];
+          if (v === null || v === undefined) return 'NULL';
+          if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+          if (typeof v === 'number') return v;
+          return "'" + String(v).replace(/'/g,"''") + "'";
+        });
+        const updates = keys.map((k,i) => `${k}=${vals[i]}`).join(',');
+        const sql = `INSERT INTO ${table} (${keys.join(',')}) VALUES (${vals.join(',')}) ON CONFLICT (id) DO UPDATE SET ${updates}`;
+        await neonQuery(sql);
       }
+      console.log('Synced', data.length, 'rows to Neon:', table);
     } catch(e) { console.warn('Neon sync warning:', e.message); }
   }
 
+  // ── FULL SYNC ALL TABLES TO NEON ───────────────────────
+  async function fullSyncToNeon() {
+    const statusEl = document.getElementById('neon-sync-status');
+    if (statusEl) statusEl.textContent = '⏳ Syncing to Neon backup...';
+    const tables = ['orders','order_items','customers'];
+    let total = 0;
+    for (const table of tables) {
+      try {
+        const data = await api('GET', table + '?select=*');
+        if (data && data.length) {
+          await syncToNeon(table, data);
+          total += data.length;
+          if (statusEl) statusEl.textContent = '⏳ Synced ' + table + ' (' + data.length + ' rows)...';
+        }
+      } catch(e) { console.warn('Sync error for ' + table, e); }
+    }
+    if (statusEl) statusEl.textContent = '✅ Neon sync complete! ' + total + ' records backed up — ' + new Date().toLocaleTimeString('en-GB');
+    showToast('✅ All data synced to Neon backup!');
+  }
+
+  // ── PENDING OPERATIONS QUEUE ───────────────────────────
+  let pendingOps = [];
+
+  function savePendingOp(method, path, body) {
+    try {
+      const ops = JSON.parse(localStorage.getItem('spk_pending_ops')||'[]');
+      ops.push({ method, path, body, timestamp: new Date().toISOString() });
+      localStorage.setItem('spk_pending_ops', JSON.stringify(ops));
+    } catch(e) {}
+  }
+
+  async function flushPendingOps() {
+    try {
+      const ops = JSON.parse(localStorage.getItem('spk_pending_ops')||'[]');
+      if (!ops.length) return;
+      showToast('⏳ Syncing ' + ops.length + ' pending operations...');
+      for (const op of ops) {
+        try {
+          await fetch(SURL + '/rest/v1/' + op.path, {
+            method: op.method,
+            headers: { 'apikey': KEY, 'Authorization': 'Bearer '+KEY, 'Content-Type': 'application/json', 'Prefer': op.method==='POST'?'return=representation':'' },
+            body: op.body ? JSON.stringify(op.body) : undefined
+          });
+        } catch(e) { return; }
+      }
+      localStorage.removeItem('spk_pending_ops');
+      showToast('✅ All pending operations synced!');
+      loadOrders();
+    } catch(e) {}
+  }
+
   // ── FAILOVER API ─────────────────────────────────────────
+  // Cached data for offline use
+  let cachedOrders = [];
+  let cachedOrderItems = {};
+
   async function api(method, path, body) {
-    // Try Supabase first
     try {
       const res = await fetch(SURL + '/rest/v1/' + path, {
         method,
@@ -693,40 +780,74 @@
       });
       if (!res.ok) throw new Error(await res.text());
       if (method==='DELETE'||res.status===204) {
-        if (usingBackupDB) { usingBackupDB=false; showDBStatus(false); }
+        if (usingBackupDB) {
+          usingBackupDB = false;
+          showDBStatus(false);
+          flushPendingOps();
+        }
         return null;
       }
       const data = await res.json();
-      // If was using backup, switch back
+
+      // Back to main DB
       if (usingBackupDB) {
         usingBackupDB = false;
         showDBStatus(false);
         showToast('✅ Reconnected to main database!');
+        flushPendingOps();
       }
+
+      // Cache GET results for offline fallback
+      if (method === 'GET') {
+        const tableName = path.split('?')[0];
+        try { localStorage.setItem('spk_cache_'+tableName, JSON.stringify(data)); } catch(e) {}
+      }
+
       // Sync writes to Neon in background
       if ((method==='POST'||method==='PATCH') && data) {
         const tableName = path.split('?')[0];
         const toSync = Array.isArray(data) ? data : [data];
-        setTimeout(() => syncToNeon(tableName, toSync), 500);
+        setTimeout(() => syncToNeon(tableName, toSync), 1000);
       }
+
       return data;
+
     } catch(supaErr) {
-      // Supabase failed — try Neon backup
+      // Supabase failed — use cached data or Neon
       if (!usingBackupDB) {
         usingBackupDB = true;
         showDBStatus(true);
         showToast('⚠️ Main database unavailable — using backup!');
       }
-      // For GET requests — read from Neon
+
       if (method === 'GET') {
+        // Try Neon first
         try {
           const tableName = path.split('?')[0];
           const result = await neonQuery('SELECT * FROM ' + tableName + ' ORDER BY created_at DESC LIMIT 1000');
-          return result.rows || [];
+          if (result && result.rows) return result.rows;
         } catch(neonErr) {
-          throw new Error('Both databases unavailable: ' + neonErr.message);
+          console.warn('Neon also failed, using cache');
         }
+        // Fall back to localStorage cache
+        const tableName = path.split('?')[0];
+        try {
+          const cached = localStorage.getItem('spk_cache_'+tableName);
+          if (cached) {
+            showToast('📱 Using cached data');
+            return JSON.parse(cached);
+          }
+        } catch(e) {}
+        return [];
       }
+
+      // For writes — save to pending queue
+      if (method === 'POST' || method === 'PATCH' || method === 'DELETE') {
+        savePendingOp(method, path, body);
+        showToast('💾 Saved locally — will sync when database is back');
+        return body ? [body] : null;
+      }
+
       throw supaErr;
     }
   }
