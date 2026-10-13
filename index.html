@@ -484,6 +484,41 @@
     </div>
 
     <!-- NEON SYNC CARD -->
+    <!-- ACCOUNTANT REPORT CARD -->
+    <div class="card" style="border:2px solid #1E8449;">
+      <div class="card-title" style="color:#1E8449;">📊 Accountant Report — Download by Date</div>
+      <div style="font-size:13px;color:#566573;margin-bottom:16px;">
+        Select a date range to download a full summary Excel report for the accountant. Includes all orders, payments, VAT and totals.
+      </div>
+
+      <!-- Date range selector -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:12px;font-weight:600;color:#566573;">📅 From Date</label>
+          <input type="date" id="acc-from" style="border:1px solid #D5D8DC;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:12px;font-weight:600;color:#566573;">📅 To Date</label>
+          <input type="date" id="acc-to" style="border:1px solid #D5D8DC;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;">
+        </div>
+      </div>
+
+      <!-- Quick date buttons -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button onclick="setAccRange('today')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Today</button>
+        <button onclick="setAccRange('week')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">This Week</button>
+        <button onclick="setAccRange('month')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">This Month</button>
+        <button onclick="setAccRange('lastmonth')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Last Month</button>
+        <button onclick="setAccRange('year')" style="background:#EBF5FB;color:#1B4F72;border:1px solid #AED6F1;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">This Year</button>
+      </div>
+
+      <!-- Download button -->
+      <button onclick="downloadAccountantReport()" style="background:#1E8449;color:white;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
+        📊 Download Accountant Report (Excel)
+      </button>
+      <div style="font-size:11px;color:#566573;margin-top:10px;text-align:center;" id="acc-report-status"></div>
+    </div>
+
     <div class="card" style="border:2px solid #8E44AD;">
       <div class="card-title" style="color:#8E44AD;">🔵 Neon Backup Database — Sync Status</div>
       <div style="font-size:13px;color:#566573;margin-bottom:16px;">
@@ -1523,6 +1558,217 @@
     printArea.style.display = 'block';
     window.print();
     setTimeout(() => { printArea.style.display = 'none'; printArea.innerHTML = ''; }, 1000);
+  }
+
+  // ── ACCOUNTANT REPORT ──────────────────────────────────
+  function setAccRange(range) {
+    const today = new Date();
+    const fmt = d => d.toISOString().split('T')[0];
+    let from, to;
+    if (range === 'today') {
+      from = to = fmt(today);
+    } else if (range === 'week') {
+      const start = new Date(today);
+      start.setDate(today.getDate() - today.getDay());
+      from = fmt(start); to = fmt(today);
+    } else if (range === 'month') {
+      from = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+      to = fmt(today);
+    } else if (range === 'lastmonth') {
+      const first = new Date(today.getFullYear(), today.getMonth()-1, 1);
+      const last = new Date(today.getFullYear(), today.getMonth(), 0);
+      from = fmt(first); to = fmt(last);
+    } else if (range === 'year') {
+      from = fmt(new Date(today.getFullYear(), 0, 1));
+      to = fmt(today);
+    }
+    document.getElementById('acc-from').value = from;
+    document.getElementById('acc-to').value = to;
+  }
+
+  async function downloadAccountantReport() {
+    const from = document.getElementById('acc-from').value;
+    const to = document.getElementById('acc-to').value;
+    const statusEl = document.getElementById('acc-report-status');
+
+    if (!from || !to) {
+      statusEl.textContent = '⚠️ Please select a date range first.';
+      statusEl.style.color = '#C0392B';
+      return;
+    }
+    if (from > to) {
+      statusEl.textContent = '⚠️ From date must be before To date.';
+      statusEl.style.color = '#C0392B';
+      return;
+    }
+
+    statusEl.textContent = '⏳ Preparing report...';
+    statusEl.style.color = '#566573';
+
+    try {
+      // Fetch orders in date range
+      const allOrders = await api('GET', 'orders?select=*&order=delivery_date.asc');
+      const allItems = await api('GET', 'order_items?select=*');
+
+      // Filter by date range
+      const filtered = allOrders.filter(o => {
+        const d = (o.delivery_date||'').substring(0,10);
+        return d >= from && d <= to;
+      });
+
+      if (!filtered.length) {
+        statusEl.textContent = '⚠️ No orders found for this date range.';
+        statusEl.style.color = '#E67E22';
+        return;
+      }
+
+      // Build items map
+      const itemsMap = {};
+      (allItems||[]).forEach(i => {
+        if (!itemsMap[i.order_id]) itemsMap[i.order_id] = [];
+        itemsMap[i.order_id].push(i);
+      });
+
+      const wb = XLSX.utils.book_new();
+      const fmt = n => n ? parseFloat(n).toFixed(2) : '0.00';
+      const dateStr = from + ' to ' + to;
+
+      // ── SHEET 1: ORDER SUMMARY ──────────────────────────
+      const summaryData = filtered.map(o => {
+        const items = itemsMap[o.id] || [];
+        const subtotal = parseFloat(o.total_price||0);
+        const discount = subtotal * ((o.discount_pct||0)/100);
+        const afterDiscount = subtotal - discount;
+        const vat = afterDiscount * ((o.vat_pct||0)/100);
+        const grandTotal = afterDiscount + vat;
+        return {
+          'Order No': 'ORD-'+String(o.order_number).padStart(3,'0'),
+          'Customer': o.customer_name,
+          'Phone': o.phone||'',
+          'Products': items.map(i=>i.product+'('+i.quantity_kg+'kg)').join(', ') || o.product,
+          'Total Qty (kg)': parseFloat(o.quantity_kg||0).toFixed(1),
+          'Subtotal (Rs)': fmt(subtotal),
+          'Discount %': o.discount_pct||0,
+          'Discount (Rs)': fmt(discount),
+          'VAT %': o.vat_pct||0,
+          'VAT (Rs)': fmt(vat),
+          'Grand Total (Rs)': fmt(grandTotal),
+          'Payment Status': o.payment_status||'Unpaid',
+          'Order Status': o.status,
+          'Prep Date': o.preparation_date||'',
+          'Processing Date': o.processing_date||'',
+          'Delivery Date': o.delivery_date||'',
+          'Notes': o.notes||''
+        };
+      });
+
+      // Add totals row
+      const totalSubtotal = filtered.reduce((s,o)=>s+parseFloat(o.total_price||0),0);
+      const totalDiscount = filtered.reduce((s,o)=>s+(parseFloat(o.total_price||0)*(o.discount_pct||0)/100),0);
+      const totalVat = filtered.reduce((s,o)=>{
+        const after = parseFloat(o.total_price||0) - (parseFloat(o.total_price||0)*(o.discount_pct||0)/100);
+        return s + after * ((o.vat_pct||0)/100);
+      },0);
+      const totalGrand = totalSubtotal - totalDiscount + totalVat;
+      const totalPaid = filtered.filter(o=>o.payment_status==='Paid').reduce((s,o)=>s+parseFloat(o.total_price||0),0);
+      const totalUnpaid = totalGrand - totalPaid;
+
+      summaryData.push({
+        'Order No': '── TOTALS ──',
+        'Customer': filtered.length + ' orders',
+        'Phone': '',
+        'Products': '',
+        'Total Qty (kg)': filtered.reduce((s,o)=>s+parseFloat(o.quantity_kg||0),0).toFixed(1),
+        'Subtotal (Rs)': fmt(totalSubtotal),
+        'Discount %': '',
+        'Discount (Rs)': fmt(totalDiscount),
+        'VAT %': '',
+        'VAT (Rs)': fmt(totalVat),
+        'Grand Total (Rs)': fmt(totalGrand),
+        'Payment Status': '',
+        'Order Status': '',
+        'Prep Date': '',
+        'Processing Date': '',
+        'Delivery Date': '',
+        'Notes': ''
+      });
+
+      const ws1 = XLSX.utils.json_to_sheet(summaryData);
+      ws1['!cols'] = Object.keys(summaryData[0]).map(k => ({ wch: Math.max(k.length, 14) }));
+      XLSX.utils.book_append_sheet(wb, ws1, 'Order Summary');
+
+      // ── SHEET 2: PAYMENT SUMMARY ────────────────────────
+      const paymentData = [
+        { 'Description': 'Total Orders', 'Amount (Rs)': filtered.length },
+        { 'Description': 'Total Sales (Subtotal)', 'Amount (Rs)': fmt(totalSubtotal) },
+        { 'Description': 'Total Discounts', 'Amount (Rs)': fmt(totalDiscount) },
+        { 'Description': 'Total VAT Collected', 'Amount (Rs)': fmt(totalVat) },
+        { 'Description': 'GRAND TOTAL', 'Amount (Rs)': fmt(totalGrand) },
+        { 'Description': '──────────────', 'Amount (Rs)': '' },
+        { 'Description': 'Total Paid', 'Amount (Rs)': fmt(totalPaid) },
+        { 'Description': 'Total Unpaid', 'Amount (Rs)': fmt(totalUnpaid) },
+        { 'Description': 'Paid Orders Count', 'Amount (Rs)': filtered.filter(o=>o.payment_status==='Paid').length },
+        { 'Description': 'Unpaid Orders Count', 'Amount (Rs)': filtered.filter(o=>o.payment_status==='Unpaid').length },
+        { 'Description': 'Paid on Delivery Count', 'Amount (Rs)': filtered.filter(o=>o.payment_status==='Paid upon delivery').length },
+      ];
+      const ws2 = XLSX.utils.json_to_sheet(paymentData);
+      ws2['!cols'] = [{ wch: 30 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Payment Summary');
+
+      // ── SHEET 3: PRODUCT BREAKDOWN ──────────────────────
+      const productTotals = {};
+      (allItems||[]).forEach(i => {
+        const o = filtered.find(o => o.id === i.order_id);
+        if (!o) return;
+        if (!productTotals[i.product]) productTotals[i.product] = { qty: 0, revenue: 0, orders: 0 };
+        productTotals[i.product].qty += parseFloat(i.quantity_kg||0);
+        productTotals[i.product].revenue += parseFloat(i.total_price||0);
+        productTotals[i.product].orders++;
+      });
+      const productData = Object.entries(productTotals).map(([product, data]) => ({
+        'Product': product,
+        'Total Orders': data.orders,
+        'Total Qty (kg)': data.qty.toFixed(1),
+        'Total Revenue (Rs)': fmt(data.revenue)
+      }));
+      const ws3 = XLSX.utils.json_to_sheet(productData);
+      ws3['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, ws3, 'Product Breakdown');
+
+      // ── SHEET 4: UNPAID ORDERS ──────────────────────────
+      const unpaidData = filtered.filter(o=>o.payment_status==='Unpaid'||o.payment_status==='Paid upon delivery').map(o => {
+        const subtotal = parseFloat(o.total_price||0);
+        const discount = subtotal * ((o.discount_pct||0)/100);
+        const afterDiscount = subtotal - discount;
+        const vat = afterDiscount * ((o.vat_pct||0)/100);
+        const grandTotal = afterDiscount + vat;
+        return {
+          'Order No': 'ORD-'+String(o.order_number).padStart(3,'0'),
+          'Customer': o.customer_name,
+          'Phone': o.phone||'',
+          'Amount Due (Rs)': fmt(grandTotal),
+          'Payment Status': o.payment_status,
+          'Delivery Date': o.delivery_date||'',
+          'Notes': o.notes||''
+        };
+      });
+      if (unpaidData.length) {
+        const ws4 = XLSX.utils.json_to_sheet(unpaidData);
+        ws4['!cols'] = Object.keys(unpaidData[0]).map(k => ({ wch: Math.max(k.length, 16) }));
+        XLSX.utils.book_append_sheet(wb, ws4, 'Unpaid Orders');
+      }
+
+      // Download
+      const filename = 'SPK_Accountant_Report_' + from + '_to_' + to + '.xlsx';
+      XLSX.writeFile(wb, filename);
+      statusEl.textContent = '✅ Report downloaded! ' + filtered.length + ' orders — ' + from + ' to ' + to;
+      statusEl.style.color = '#1E8449';
+      showToast('✅ Accountant report downloaded!');
+
+    } catch(e) {
+      statusEl.textContent = '❌ Error: ' + e.message;
+      statusEl.style.color = '#C0392B';
+    }
   }
 
   // ── VERSION MANAGER ────────────────────────────────────
