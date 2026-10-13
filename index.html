@@ -513,6 +513,33 @@
 
   <!-- ═══ PRICE LIST PAGE ═══ -->
   <div class="page" id="page-prices">
+
+    <!-- VERSION MANAGER CARD -->
+    <div class="card" style="border:2px solid #E67E22;margin-bottom:16px;">
+      <div class="card-title" style="color:#E67E22;">🔢 App Version Manager</div>
+      <div style="font-size:13px;color:#566573;margin-bottom:14px;">
+        Every time you upload a new file to GitHub, increase the version number here. 
+        All users will automatically see a notification to update within 5 minutes.
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:12px;color:#566573;font-weight:500;">Current Version</label>
+          <div style="font-size:24px;font-weight:700;color:#1B4F72;" id="current-ver-display">Loading...</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;">
+          <label style="font-size:12px;color:#566573;font-weight:500;">New Version Number</label>
+          <input type="text" id="new-version-input" placeholder="e.g. 1.0.1" style="border:1px solid #D5D8DC;border-radius:8px;padding:8px 10px;font-size:14px;outline:none;">
+        </div>
+        <button onclick="updateAppVersion()" style="background:#E67E22;color:white;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-top:18px;">
+          🔢 Update Version
+        </button>
+      </div>
+      <div style="background:#FEF9E7;border-radius:8px;padding:10px 14px;margin-top:12px;font-size:12px;color:#E67E22;">
+        💡 <strong>How to use:</strong> After uploading new file to GitHub → come here → change version from 1.0.0 to 1.0.1 → tap Update. All users will see update notification within 5 minutes!
+      </div>
+      <div style="font-size:11px;color:#566573;margin-top:8px;text-align:center;" id="version-update-status"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">💰 Price List — Edit Prices</div>
       <div class="info-box">✏️ Click any price to edit it. Press <strong>Save</strong> to update. Prices auto-fill when adding orders.</div>
@@ -1279,6 +1306,7 @@
         document.getElementById('change-pwd-btn').style.display='block';
         showPage(pendingPage, pendingTab);
         if(pendingPage==='dashboard') renderDashboard();
+      if(pendingPage==='prices') loadAppVersion();
         showToast('🔓 Manager access granted!');
         setTimeout(logoutManager, 8*60*60*1000);
       } else {
@@ -1492,6 +1520,51 @@
     printArea.style.display = 'block';
     window.print();
     setTimeout(() => { printArea.style.display = 'none'; printArea.innerHTML = ''; }, 1000);
+  }
+
+  // ── VERSION MANAGER ────────────────────────────────────
+  async function loadAppVersion() {
+    try {
+      const data = await api('GET', 'app_settings?key=eq.app_version&select=value');
+      const ver = data && data[0] ? data[0].value : '1.0.0';
+      const el = document.getElementById('current-ver-display');
+      if (el) el.textContent = 'v' + ver;
+      const input = document.getElementById('new-version-input');
+      if (input) input.placeholder = 'e.g. ' + bumpVersion(ver);
+    } catch(e) { console.warn('Version load error:', e); }
+  }
+
+  function bumpVersion(ver) {
+    const parts = ver.split('.');
+    parts[2] = String(parseInt(parts[2]||0) + 1);
+    return parts.join('.');
+  }
+
+  async function updateAppVersion() {
+    const newVer = document.getElementById('new-version-input').value.trim();
+    const statusEl = document.getElementById('version-update-status');
+    if (!newVer) {
+      statusEl.textContent = '⚠️ Please enter a version number e.g. 1.0.1';
+      statusEl.style.color = '#C0392B';
+      return;
+    }
+    try {
+      // Save to app_settings
+      const existing = await api('GET', 'app_settings?key=eq.app_version&select=value');
+      if (existing && existing.length > 0) {
+        await api('PATCH', 'app_settings?key=eq.app_version', { value: newVer });
+      } else {
+        await api('POST', 'app_settings', { key: 'app_version', value: newVer });
+      }
+      document.getElementById('current-ver-display').textContent = 'v' + newVer;
+      document.getElementById('new-version-input').value = '';
+      statusEl.textContent = '✅ Version updated to v' + newVer + '! All users will see update notification within 5 minutes.';
+      statusEl.style.color = '#1E8449';
+      showToast('✅ Version updated to v' + newVer);
+    } catch(e) {
+      statusEl.textContent = '❌ Error: ' + e.message;
+      statusEl.style.color = '#C0392B';
+    }
   }
 
   // ── CHANGE PASSWORD ────────────────────────────────────
@@ -2024,18 +2097,12 @@
 
   async function checkForUpdates() {
     try {
-      // Fetch the live platform page with cache-busting
-      const res = await fetch(window.location.href + '?v=' + Date.now(), {
-        cache: 'no-store'
-      });
-      if (!res.ok) return;
-      const html = await res.text();
-      // Extract version from meta tag
-      const match = html.match(/name="app-version" content="([^"]+)"/);
-      if (match && match[1] && match[1] !== CURRENT_VERSION) {
-        // New version found — show notification bar
+      const data = await api('GET', 'app_settings?key=eq.app_version&select=value');
+      const serverVer = data && data[0] ? data[0].value : CURRENT_VERSION;
+      if (serverVer !== CURRENT_VERSION) {
         document.getElementById('update-bar').style.display = 'block';
-        console.log('New version available:', match[1]);
+        document.getElementById('update-bar').innerHTML = 
+          '🔄 New version v' + serverVer + ' available! Tap here to update — your data is safe ✅';
       }
     } catch(e) { console.warn('Update check failed:', e); }
   }
